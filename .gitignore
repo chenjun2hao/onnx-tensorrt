@@ -22,3 +22,5 @@ __pycache__/
 
 # Build
 build
+
+.vscode

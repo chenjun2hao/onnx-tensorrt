@@ -182,7 +182,7 @@ int main(int argc, char* argv[]) {
   }
 
   {
-    std::ifstream onnx_file(onnx_filename.c_str(),
+    std::ifstream onnx_file(onnx_filename.c_str(),      // 读取onnx模型的二进制
                             std::ios::binary | std::ios::ate);
     std::streamsize file_size = onnx_file.tellg();
     onnx_file.seekg(0, std::ios::beg);
@@ -191,7 +191,7 @@ int main(int argc, char* argv[]) {
       cerr << "ERROR: Failed to read from file " << onnx_filename << endl;
       return -4;
     }
-    if( !trt_parser->parse(onnx_buf.data(), onnx_buf.size()) ) {
+    if( !trt_parser->parse(onnx_buf.data(), onnx_buf.size()) ) {    // onnx 解析模型
       int nerror = trt_parser->getNbErrors();
       for( int i=0; i<nerror; ++i ) {
         nvonnxparser::IParserError const* error = trt_parser->getError(i);
@@ -219,7 +219,7 @@ int main(int argc, char* argv[]) {
       return -5;
     }
   }
-
+  
   bool fp16 = trt_builder->platformHasFastFp16();
 
   if( !engine_filename.empty() ) {
@@ -239,9 +239,9 @@ int main(int argc, char* argv[]) {
       return -5;
     }
     trt_builder->setDebugSync(debug_builder);
-    auto trt_engine = common::infer_object(trt_builder->buildCudaEngine(*trt_network.get()));
+    auto trt_engine = common::infer_object(trt_builder->buildCudaEngine(*trt_network.get()));     // @@ build tensorrt engine 文件
 
-    auto engine_plan = common::infer_object(trt_engine->serialize());
+    auto engine_plan = common::infer_object(trt_engine->serialize());           // 序列化
     std::ofstream engine_file(engine_filename.c_str());
     if (!engine_file) {
       cerr << "Failed to open output file for writing: "

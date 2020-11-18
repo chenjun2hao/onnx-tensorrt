@@ -296,11 +296,11 @@ inline bool convert_weight_descriptor(onnxTensorDescriptorV1 const &desc,
   *weights = trt_weights;
   return true;
 }
-
+// 拷贝onnx到tensorrt
 inline bool convert_onnx_weights(::ONNX_NAMESPACE::TensorProto const& onnx_tensor,
-                                 onnx2trt::ShapedWeights* weights) {
+                                 onnx2trt::ShapedWeights* weights) {      
   nvinfer1::Dims shape;
-  shape.nbDims = onnx_tensor.dims().size();
+  shape.nbDims = onnx_tensor.dims().size();       // shape
   std::copy(onnx_tensor.dims().begin(), onnx_tensor.dims().end(),
             shape.d);
   // Special case for scalars
@@ -312,7 +312,7 @@ inline bool convert_onnx_weights(::ONNX_NAMESPACE::TensorProto const& onnx_tenso
   auto dtype = onnx_tensor.data_type();
   void* data_ptr; // TODO: See if can make const*
   size_t nbytes;
-  if( onnx_tensor.raw_data().size() > 0 ) {
+  if( onnx_tensor.raw_data().size() > 0 ) {           // 3456 = 32*3*3*3*4(float)
     data_ptr = (void*)onnx_tensor.raw_data().data();
     nbytes = onnx_tensor.raw_data().size();
   } else if( onnx_tensor.float_data().size() > 0 ) {
@@ -338,7 +338,7 @@ inline bool convert_onnx_weights(::ONNX_NAMESPACE::TensorProto const& onnx_tenso
     return false;
   }
 
-  onnx2trt::ShapedWeights trt_weights(dtype, data_ptr, shape);
+  onnx2trt::ShapedWeights trt_weights(dtype, data_ptr, shape);      // trt_weights是一个类
   (void)nbytes;
   assert(trt_weights.size_bytes() == nbytes);
   *weights = trt_weights;

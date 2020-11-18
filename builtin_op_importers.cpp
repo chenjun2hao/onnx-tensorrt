@@ -25,6 +25,7 @@
 #include "plugin.hpp"
 #include "FancyActivation.hpp"
 #include "ResizeNearest.hpp"
+#include "ResizeBilinear.hpp"
 #include "Split.hpp"
 #include "InstanceNormalization.hpp"
 
@@ -422,7 +423,7 @@ bool registerBuiltinOpImporter(std::string op,
   NodeImportResult import##op(IImporterContext* ctx, \
                               ::ONNX_NAMESPACE::NodeProto const& node, \
                               std::vector<TensorOrWeights>& inputs)
-
+// 注册，声明与执行
 #define DEFINE_BUILTIN_OP_IMPORTER(op) \
   NodeImportResult import##op(IImporterContext* ctx, \
                           ::ONNX_NAMESPACE::NodeProto const& node, \
@@ -1973,7 +1974,7 @@ DEFINE_BUILTIN_OP_IMPORTER(Unsqueeze) {
 }
 #endif // NV_TENSORRT_MAJOR >= 4
 
-DEFINE_BUILTIN_OP_IMPORTER(Upsample) {
+DEFINE_BUILTIN_OP_IMPORTER(Upsample) {        // 传入的参数有： &_importer_ctx, node, inputs
   nvinfer1::ITensor &tensor = convertToTensor(inputs.at(0), ctx);
   ASSERT(tensor.getDimensions().nbDims == 3, ErrorCode::kUNSUPPORTED_NODE);
   OnnxAttrs attrs(node);
@@ -2006,9 +2007,14 @@ DEFINE_BUILTIN_OP_IMPORTER(Upsample) {
   }
   auto scale = {height_scale, width_scale};
   auto mode = attrs.get<std::string>("mode", "nearest");
-  ASSERT(mode == "nearest", ErrorCode::kUNSUPPORTED_NODE);
-  RETURN_FIRST_OUTPUT(
-      ctx->addPluginV2(new ResizeNearestPlugin(scale), {&inputs.at(0).tensor()}));
+  ASSERT(mode == "nearest" || mode == "linear", ErrorCode::kUNSUPPORTED_NODE);
+  if (mode == "nearest")
+    RETURN_FIRST_OUTPUT(
+        ctx->addPluginV2(new ResizeNearestPlugin(scale), {&inputs.at(0).tensor()}));
+  else if (mode == "linear")
+    RETURN_FIRST_OUTPUT(
+        ctx->addPluginV2(new ResizeBilinearPlugin(scale), {&inputs.at(0).tensor()}));
+  
 }
 
 } // namespace

@@ -46,7 +46,7 @@ class ModelImporter final : public nvonnxparser::IParser {
 public:
   ModelImporter(nvinfer1::INetworkDefinition* network,
                 nvinfer1::ILogger* logger)
-    : _op_importers(getBuiltinOpImporterMap()),
+    : _op_importers(getBuiltinOpImporterMap()),             // 初始化时， 支持的网络操作， builtin_op_importers.cpp
       _importer_ctx(network, logger) {}
   bool parseWithWeightDescriptors(
       void const *serialized_onnx_model, size_t serialized_onnx_model_size,

@@ -45,7 +45,7 @@ typedef ValueOrStatus<std::vector<TensorOrWeights>> NodeImportResult;
 typedef std::function<NodeImportResult(IImporterContext *ctx,
                                        ::ONNX_NAMESPACE::NodeProto const &node,
                                        std::vector<TensorOrWeights> &inputs)>
-    NodeImporter;
+    NodeImporter;       // 函数指针
 
 struct IImporterContext {
   virtual nvinfer1::INetworkDefinition* network() = 0;

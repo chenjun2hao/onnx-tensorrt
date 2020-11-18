@@ -93,7 +93,7 @@ Status importInputs(ImporterContext* importer_ctx,
   // either Initializer list in onnx graph
   // or User specified weight through onnxifi
   string_map<::ONNX_NAMESPACE::TensorProto const*> initializer_map;
-  for( ::ONNX_NAMESPACE::TensorProto const& initializer : graph.initializer() ) {
+  for( ::ONNX_NAMESPACE::TensorProto const& initializer : graph.initializer() ) {         // graph.initializer提取
     ASSERT(!initializer_map.count(initializer.name()), ErrorCode::kINVALID_GRAPH);
     initializer_map.insert({initializer.name(), &initializer});
   }
@@ -108,12 +108,12 @@ Status importInputs(ImporterContext* importer_ctx,
   }
   for( ::ONNX_NAMESPACE::ValueInfoProto const& input : graph.input() ) {
     TensorOrWeights tensor;
-    if( initializer_map.count(input.name()) ) {
+    if( initializer_map.count(input.name()) ) {         // 默认分支
       ::ONNX_NAMESPACE::TensorProto const& initializer = *initializer_map.at(input.name());
-      ShapedWeights weights;
+      ShapedWeights weights;            // 网络tensor的权重
       ASSERT_INPUT(convert_onnx_weights(initializer, &weights),
              ErrorCode::kUNSUPPORTED_NODE,input.name());
-      tensor = weights;
+      tensor = weights;                 // onnx2tensorrt的weights
     } else if (weight_map.count(input.name())) {
       onnxTensorDescriptorV1 const& weight_desc = *weight_map.at(input.name());
       ShapedWeights weights;
@@ -138,15 +138,15 @@ Status importInputs(ImporterContext* importer_ctx,
 NodeImportResult ModelImporter::importNode(::ONNX_NAMESPACE::NodeProto const& node,
                                            std::vector<TensorOrWeights>& inputs,
                                            std::vector<std::string>& output_names) {
-  if( !_op_importers.count(node.op_type()) ) {
+  if( !_op_importers.count(node.op_type()) ) {                            // 判断 op 类别是否注册
     return MAKE_ERROR("No importer registered for op: " + node.op_type(),
                       ErrorCode::kUNSUPPORTED_NODE);
   }
-  NodeImporter const& node_importer = _op_importers.at(node.op_type());
+  NodeImporter const& node_importer = _op_importers.at(node.op_type());   // 函数指针
 
   std::vector<TensorOrWeights> outputs;
 
-  GET_VALUE(node_importer(&_importer_ctx, node, inputs), &outputs);
+  GET_VALUE(node_importer(&_importer_ctx, node, inputs), &outputs);       // 执行函数指针的函数， 跳转到 buildin_op_importers.cpp
   ASSERT(outputs.size() <= (size_t)node.output().size(), ErrorCode::kINTERNAL_ERROR);
 
   // Check if output's node name is a graph's output.
@@ -190,9 +190,9 @@ Status deserialize_onnx_model(void const* serialized_onnx_model,
                               bool is_serialized_as_text,
                               ::ONNX_NAMESPACE::ModelProto* model) {
   google::protobuf::io::ArrayInputStream raw_input(serialized_onnx_model,
-                                                   serialized_onnx_model_size);
+                                                   serialized_onnx_model_size);     // protobuf的io
   if( is_serialized_as_text ) {
-    ASSERT(google::protobuf::TextFormat::Parse(&raw_input, model),
+    ASSERT(google::protobuf::TextFormat::Parse(&raw_input, model),        // 解析成txt
            ErrorCode::kMODEL_DESERIALIZE_FAILED);
   } else {
     google::protobuf::io::CodedInputStream coded_input(&raw_input);
@@ -490,22 +490,22 @@ bool ModelImporter::supportsOperator(const char* op_name) const {
 
 bool ModelImporter::parseWithWeightDescriptors(
     void const *serialized_onnx_model, size_t serialized_onnx_model_size,
-    uint32_t weight_count, onnxTensorDescriptorV1 const *weight_descriptors) {
+    uint32_t weight_count, onnxTensorDescriptorV1 const *weight_descriptors) {      // 模型权重字符串， 字节数
   _current_node = -1;
   // TODO: This function (and its overload below) could do with some cleaning,
   //       particularly wrt error handling.
   // Note: We store a copy of the model so that weight arrays will persist
   _onnx_models.emplace_back();
-  ::ONNX_NAMESPACE::ModelProto &model = _onnx_models.back();
+  ::ONNX_NAMESPACE::ModelProto &model = _onnx_models.back();      // onnx 模型定义
   bool is_serialized_as_text = false;
   Status status =
-      deserialize_onnx_model(serialized_onnx_model, serialized_onnx_model_size,
+      deserialize_onnx_model(serialized_onnx_model, serialized_onnx_model_size,     // onnx模型 反序列化
                              is_serialized_as_text, &model);
   if (status.is_error()) {
     _errors.push_back(status);
     return false;
   }
-  status = this->importModel(model, weight_count, weight_descriptors);
+  status = this->importModel(model, weight_count, weight_descriptors);        // tensorrt载入onnx模型
   if (status.is_error()) {
     status.setNode(_current_node);
     _errors.push_back(status);
@@ -523,14 +523,14 @@ bool ModelImporter::parse(void const *serialized_onnx_model,
 Status
 ModelImporter::importModel(::ONNX_NAMESPACE::ModelProto const &model,
                            uint32_t weight_count,
-                           onnxTensorDescriptorV1 const *weight_descriptors) {
+                           onnxTensorDescriptorV1 const *weight_descriptors) {      // onnx-tensorrt从onnx中导入模型
   _importer_ctx.clearOpsets();
   for( int i=0; i<model.opset_import().size(); ++i ) {
     std::string domain  = model.opset_import(i).domain();
     int64_t     version = model.opset_import(i).version();
     _importer_ctx.addOpset(domain, version);
   }
-  ::ONNX_NAMESPACE::GraphProto const& graph = model.graph();
+  ::ONNX_NAMESPACE::GraphProto const& graph = model.graph();        // onnx graph
 
   std::vector<std::string>output_names;
   int num_outputs = model.graph().output_size();
@@ -539,21 +539,21 @@ ModelImporter::importModel(::ONNX_NAMESPACE::ModelProto const &model,
     output_names.push_back(model.graph().output(i).name());
   }
 
-  string_map<TensorOrWeights> tensors;
-  TRT_CHECK(importInputs(&_importer_ctx, graph, &tensors, weight_count,
+  string_map<TensorOrWeights> tensors;                            // onnx转 onnx2tensorrt 中的 tensor
+  TRT_CHECK(importInputs(&_importer_ctx, graph, &tensors, weight_count,   // onnx的input 到 onnx2tensorrt 的 tensors
                          weight_descriptors));
   std::vector<size_t> topological_order;
   ASSERT(toposort(graph.node(), &topological_order), ErrorCode::kINVALID_GRAPH);
   for( size_t node_idx : topological_order ) {
     _current_node = node_idx;
     ::ONNX_NAMESPACE::NodeProto const& node = graph.node(node_idx);
-    std::vector<TensorOrWeights> inputs;
+    std::vector<TensorOrWeights> inputs;                    // node inputs
     for( auto const& input_name : node.input() ) {
       ASSERT(tensors.count(input_name), ErrorCode::kINVALID_GRAPH);
       inputs.push_back(tensors.at(input_name));
     }
-    std::vector<TensorOrWeights> outputs;
-    GET_VALUE(this->importNode(node, inputs, output_names), &outputs);
+    std::vector<TensorOrWeights> outputs;                   // node outputs
+    GET_VALUE(this->importNode(node, inputs, output_names), &outputs);      // 根据inputs， node信息 得到 outputs tensor， 输出tensor尺寸的计算
     for( size_t i=0; i<outputs.size(); ++i ) {
       std::string node_output_name = node.output(i);
       TensorOrWeights& output = outputs.at(i);
@@ -605,7 +605,7 @@ ModelImporter::importModel(::ONNX_NAMESPACE::ModelProto const &model,
     }
   }
   // Return user-requested output tensors
-  for( auto user_output_entry : _importer_ctx.getUserOutputs() ) {
+  for( auto user_output_entry : _importer_ctx.getUserOutputs() ) {          // 默认跳过
     std::string         user_output_name = user_output_entry.first;
     nvinfer1::ITensor** user_output_ptr  = user_output_entry.second;
     ASSERT(tensors.count(user_output_name), ErrorCode::kINVALID_VALUE);
